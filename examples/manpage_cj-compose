@@ -1,0 +1,130 @@
+#!/bin/bash
+if [ "$1" = "list" ]
+then
+  awk -f /scripts/parse-docker-compose.awk -f /scripts/generate-service-list.awk /docker-compose.yml
+  exit 0
+fi
+
+cat<<EOF
+
+What is this?
+================================================================
+Welcome to the un-named StreamSets demo environment.  This framework provides:
+- Single environment configuration supporting multiple technologies.
+- Ability to demo technologies that are lesser used or difficult to set up.
+- Template pipelines to quickly demonstrate connectivity.
+- Consistency in credentials and assets(*) across technologies.
+
+* - Some of these are in progress.
+
+The environment is made up of these elements:
+- docker-compose.yml  - This is where all services are defined.
+- docker-compose.override.yml  - Lets you enable/disable and customize services.
+- files/*  - Files required by some services.
+
+
+Requirements
+================================================================
+- git for downloading the required files
+- docker to run the environment
+- docker-compose to start/stop the containers
+
+
+Getting Started
+================================================================
+The basic steps are: a) Start the services, b) Use gateway webpage to access services
+
+Launch services by running docker-compose in the folder with the docker-compose.yml file.
+You can start services by specifying the service ids.  Or specify no service ids to 
+launch all services.
+
+Example:
+
+  # Displays a list of available services
+  docker-compose up list
+
+  # List service ids after "up" to start a specific list.
+  # Leave service ids blank to start all services not disabled in the override file.
+  docker-compose up data_collector sqlserver hive_server
+
+Once services are started, you can go to the gateway webpage to see the service list and docs.
+
+  http://localhost:8081
+
+Warning: You need a beefy processor to start all services.  You will need about 16GB of free memory.
+Some services are disabled in the default override file.  The largest 5 services are:
+
+   NAME                        MEM USAGE
+   cassandra                   8.3 GB
+   saphana                     5.4 GB
+   elasticsearch               1.3 GB
+   presto-coordinator          1.0 GB
+   oracledb                    0.8 GB
+
+
+Customizing
+================================================================
+You can make the following customizations by editing docker-compose.override.yml:
+
+- Enable/disable services.
+- Map local files/folders into containers.
+- Override the service startup script.
+- Override the default product versions.
+- Add more containers/services.
+
+Disable a service
+----------------------------------------------------------------
+Disable a service by changing it's entry point and restart setting.  For example:
+
+  cassandra:
+    entrypoint: ["echo", "Service cassandra is disabled via configuration in docker-compose.override.yaml"]
+    restart: "no"
+
+Add file to container
+----------------------------------------------------------------
+Add a local file or folder to a container:
+
+  data_collector:
+    volumes:
+      - /home/tim/demos:/demos
+
+Customize a service
+----------------------------------------------------------------
+Override the startup script for a container:
+
+  data_collector:
+    volumes:
+      - /home/tim/new-script.sh:/new-script.sh
+    entrypoint: ["/new-script.sh"]
+
+Override the container version:
+
+  data_collector:
+    image: streamsets/datacollector:3.20.0
+
+
+Handy commands
+================================================================
+List services that can be started:
+
+    docker-compose up list
+
+Clear the previous set of containers before starting fresh:
+
+    docker-compose down -v --remove-orphans ; docker-compose up  # Clear containers before starting
+
+List all the running containers with memory usage, sorted by memory usage:
+
+    docker-compose ps -q | xargs docker stats --no-stream | sort -k4h
+
+Portainer is a great web based UI for managing docker containers:
+
+    docker run -d -p 9000:9000 --name=portainer --restart=unless-stopped \\
+      -v /var/run/docker.sock:/var/run/docker.sock -v portainer_data:/data portainer/portainer-ce
+
+Get help!
+
+    docker-compose up --no-color help | less
+
+EOF
+

@@ -1,0 +1,250 @@
+#!/bin/bash
+# Bugs: Does not support spaces in yml paths/filenames or project names.
+
+# cj-compose [-p projectname] [any other docker-compose parameters] If -p is not specified then use active directory name.
+
+#  - Automatically adds all yml files named service.*.yml by passing -f parameters to docker-compose.
+#  - Enables creating volumes with complete read/write access instead of owned by root. Name the volumes *_cj_chmod_*
+#  - Sets environment variables so they are always available to compose files.
+#    CJ_PROJECT - Contains the project name specified by COMPOSE_PROJECT_NAME environment variable, or the -p parameter.
+#         We cannot just use COMPOSE_PROJECT_NAME because docker-compose does not always set it.
+#    CJ_BASE_DOMAIN - base_domain configuration from /etc/cj-tools/cj.config
+
+function get_config {
+  sed -n '/^'"$1"'=/ s/^[^=]*=//p' /etc/cj-tools/cj.config
+}
+
+unset files
+unset tmpparms
+unset composecmd
+unset compose_parameters
+unset compose_pre_parameters
+declare -a tmpparms=("$@")
+declare -a files
+declare -a compose_parameters
+declare -a compose_pre_parameters
+
+if [ -e ".env" ]
+then
+  # Import the environment variable overrides
+  echo "Importing .env to override environment variables."
+  source .env
+fi
+
+# Set project name if not already specified
+if [ -z "${CJ_PROJECT}" ]
+then
+  if [ ! -z "${COMPOSE_PROJECT_NAME}" ]
+  then
+    export CJ_PROJECT="${COMPOSE_PROJECT_NAME}"
+  else
+    export CJ_PROJECT="$(basename $(pwd))"
+  fi
+fi
+
+# Loop through the parameters looking for -p and -f parms Also build up the parameters to pass to docker-compose
+skip_next=0
+consume_remainder=0
+project_specified=0
+for i in ${!tmpparms[@]}
+do
+  if [ $consume_remainder == 1 ]
+  then
+    compose_parameters+=("${tmpparms[$i]}")
+  elif [ $skip_next == 1 ]
+  then
+    skip_next=0
+  else
+    # -p and -f must be specified before the command
+    case ${tmpparms[$i]} in 
+      -p|--project-name)
+        # Override whatever compose project they specified in environment variables.
+        export CJ_PROJECT="${tmpparms[$((i+1))]}"
+        project_specified=1
+        skip_next=1
+        ;;
+      -f|--file)
+        files+=("${tmpparms[$((i+1))]}")
+        skip_next=1
+        ;;
+      -*)
+        compose_pre_parameters+=("${tmpparms[$i]}")
+        ;;
+      [a-zA-Z]*)
+        composecmd="${tmpparms[$i]}"
+        consume_remainder=1
+        ;;
+    esac
+  fi
+done
+
+# Add /etc/cj-tools/scripts/cj-tools.yml And all yml files named ./services.*
+
+if [ ${#files[@]} -eq 0 ]
+then
+  [ -e ./docker-compose.yml ] && files+=(./docker-compose.yml)
+  [ -e ./docker-compose.override.yml ] && files+=(./docker-compose.override.yml)
+fi
+if [ -e /etc/cj-tools/scripts/cj-tools.yml ]
+then
+  files+=(/etc/cj-tools/scripts/cj-tools.yml)
+fi
+
+if [ -n "$(ls -A ./service.*.yml 2>/dev/null)" ]
+then
+  files+=(./service.*.yml)
+fi
+if [ -n "$(ls -A ./disabled.service.*.yml 2>/dev/null)" ]
+then
+  files+=(./disabled.service.*.yml)
+fi
+
+unset add_yml_files
+declare -a add_yml_files
+unset add_disabled_yml_files
+declare -a add_disabled_yml_files
+for i in ${!files[@]}
+do
+  if [[ ${files[$i]} =~ disabled\.* ]]
+  then
+    add_disabled_yml_files+=("-f" "${files[$i]}")
+  else
+    add_yml_files+=("-f" "${files[$i]}")
+  fi
+done
+
+if [ -z "${CJ_BASE_DOMAIN}" ]
+then
+  export CJ_BASE_DOMAIN="$(get_config base_domain)"
+  # Set Defaults
+  # Default domain to machine's fully qualified domain name
+  export CJ_BASE_DOMAIN="${CJ_BASE_DOMAIN:-$(hostname -f)}"
+fi
+
+export CJ_FULL_DOMAIN="${CJ_PROJECT}.${CJ_BASE_DOMAIN}"
+
+# docker-compose does not consistently set COMPOSE_PROJECT_NAME.  We make it consistent.
+export CJ_PROJECT
+export CJ_BASE_DOMAIN
+export CJ_FULL_DOMAIN
+export COMPOSE_PROJECT_NAME="${CJ_PROJECT}"
+
+if [ ${project_specified} -eq 0 -a ! -z "${composecmd}" -a "${composecmd}" != "help"  -a "${composecmd}" != "list"  -a "${composecmd}" != "disable"  -a "${composecmd}" != "enable" ]
+then
+  echo "Project name not specified via -p.  Using '${CJ_PROJECT}'"
+fi
+
+if [ "${composecmd}" == "list" ]
+then
+  docker-compose -p "${CJ_PROJECT}" "${add_yml_files[@]}" ps --services | sort
+elif [ "${composecmd}" == "disable" ]
+then
+  if [ ${#compose_parameters[@]} -eq 0 ]
+  then
+    # List the disabled services
+    echo List of services
+    echo -------------------------------------
+    (
+      # List disabled
+      ls -A ./disabled.service.*.yml 2>/dev/null | sed -n -e '/disabled\./!d; s|\./||; s/service\.//; s/disabled\.//; s/\.yml//; s/$/ (disabled) &/p'
+      # List enabled
+      ls -A ./service.*.yml 2>/dev/null | sed -n -e '/disabled\./d; s|\./service\.||; s/disabled\.//; s/\.yml//;                    p'
+    ) | sort
+  else
+    for fl in ${compose_parameters[@]}
+    do
+      if [ -e "./disabled.service.$fl.yml" ]
+      then
+        echo "WARNING: Service $fl already disabled."
+      elif [ ! -e "./service.$fl.yml" ]
+      then
+        echo "ERROR: Service file not found: ./service.$fl.yml"
+        exit 1
+      else
+        mv "./service.$fl.yml" "./disabled.service.$fl.yml"
+        echo $fl disabled
+      fi
+    done
+  fi
+elif [ "${composecmd}" == "enable" ]
+then
+  if [ ${#compose_parameters[@]} -eq 0 ]
+  then
+    echo List of services
+    echo -------------------------------------
+    (
+      # List disabled
+      ls -A ./disabled.service.*.yml 2>/dev/null | sed -n -e '/disabled\./!d; s|\./||; s/service\.//; s/disabled\.//; s/\.yml//; s/$/ (disabled) &/p'
+      # List enabled
+      ls -A ./service.*.yml 2>/dev/null | sed -n -e '/disabled\./d; s|\./service\.||; s/disabled\.//; s/\.yml//;                    p'
+    ) | sort
+  else
+    for fl in ${compose_parameters[@]}
+    do
+      if [ -e "./service.$fl.yml" ]
+      then
+        echo "WARNING: Service $fl already enabled"
+      elif [ ! -e "./disabled.service.$fl.yml" ]
+      then
+        echo "ERROR: Service file not found: ./disabled.service.$fl.yml"
+        exit 1
+      else
+        mv "./disabled.service.$fl.yml" "./service.$fl.yml"
+        echo $fl enabled
+      fi
+    done
+  fi
+elif [ "${composecmd}" == "help" -o -z "${composecmd}" ]
+then
+  echo
+  echo cj-compose - Container Jockey Compose
+  echo
+  echo Extends docker-compose functionality to provide consistent environment variables,
+  echo automatic import of all service.*.yml, and auto create volumes named *_cj_chmod_*
+  echo setting the specified chmod number.
+  echo
+  echo Provides these environment variables for use in docker-compose files:
+  echo "  CJ_PROJECT - The project name. Set via COMPOSE_PROJECT_NAME, the -p parameter or uses PWD."
+  echo "  CJ_BASE_DOMAIN - base_domain configuration from /etc/cj-tools/cj.config"
+  echo "  CJ_FULL_DOMAIN - Defined as CJ_PROJECT.CJ_BASE_DOMAIN"
+  echo
+  # Now use docker-compose to provide the rest of the help
+  docker-compose "${compose_pre_parameters[@]}" ${composecmd} "${compose_parameters[@]}" 2>&1 |\
+    sed -n -e 's/docker-compose/cj-compose/g; /^Usage:/,$ p' \
+      -e '/^  kill   /a \ \ list              *Lists services defined in yml (added by cj-compose)' \
+      -e '/^  create /a \ \ disable           *Disables a service in ./services/ (added by cj-compose)' \
+      -e '/^  down   /a \ \ enable            *Enables a service in ./services/ (added by cj-compose)'
+elif [ "${composecmd}" == "down" ]
+then
+  # Down should include the list of disabled projets so they can get cleaned up
+  exec docker-compose -p "${CJ_PROJECT}" "${compose_pre_parameters[@]}" "${add_disabled_yml_files[@]}" "${add_yml_files[@]}" ${composecmd} "${compose_parameters[@]}"
+elif [ "${composecmd}" == "up" ]
+then
+  # docker-compose does not provide a way to create service volumes that are not owned by root
+  # So I pre-create the volumes that have _cj_grantall and _cj_chmod_ in their name
+  docker-compose -p "${CJ_PROJECT}" "${compose_pre_parameters[@]}" "${add_yml_files[@]}" config --volumes | grep '_cj_chmod_\|_cj_grantall' | while read v
+  do
+    checkexisting=$(docker volume ls -q | grep "^${CJ_PROJECT}_${v}$")
+    if [ ! -z "${checkexisting}" ]
+    then
+      echo Volume exists: ${CJ_PROJECT}_${v}
+    else
+      echo Pre-creating volume ${CJ_PROJECT}_${v} 
+      chmodval="${v##*_cj_chmod_}"
+      if [ "${chmodval}" == "${v}" ]
+      then
+        # No change.  It didn't have chmod in it
+        chmodval=777
+      else
+        #They could have something like x_cj_chmod_744_xyz  Remove everything after the digits
+        chmodval="${chmodval//[^0-9]*}"
+      fi
+      docker volume create --label "com.docker.compose.project=${CJ_PROJECT}" --label "com.docker.compose.volume=${v}" --label "com.docker.compose.version=1.25.0" ${CJ_PROJECT}_${v}
+    fi
+    docker run --rm -u root -v ${CJ_PROJECT}_${v}:/data alpine chmod ${chmodval:=777} /data >/dev/null
+  done
+  exec docker-compose -p "${CJ_PROJECT}" "${compose_pre_parameters[@]}" "${add_yml_files[@]}" ${composecmd} "${compose_parameters[@]}"
+else
+  exec docker-compose -p "${CJ_PROJECT}" "${compose_pre_parameters[@]}" "${add_yml_files[@]}" ${composecmd} "${compose_parameters[@]}"
+fi
+

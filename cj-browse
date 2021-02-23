@@ -1,0 +1,51 @@
+#!/bin/bash
+# Ideas:
+#  Detect OS and launch appropriate tool in the container.
+#  Build containers for midnight-commander and Thunar.
+# Bugs:
+#  Does not support spaces in volume names or paths.
+
+
+compose_volumes=$(
+  docker volume inspect $(docker volume ls -q) |
+  jq -jr '
+    .[]
+    | if ( .Labels."com.docker.compose.project" > "" ) then
+      (" -v " + .Name + ":/vols/Named_volumes_in_Compose_projects/" + .Labels."com.docker.compose.project" + "/" + .Labels."com.docker.compose.volume")
+    else
+      empty
+    end
+')
+container_volumes=$(
+  docker inspect $(docker ps -a -q) |
+  jq -jr '
+    .[]
+    | .Name as $cpath | .Mounts[] | " -v " + ( .Name // .Source) + ":/vols/External_to_containers" + $cpath + .Destination
+')
+active_container_volumes=$(
+  docker inspect $(docker ps -q) |
+  jq -jr '
+    .[]
+    | .Name as $cpath | .Mounts[] | " -v " + ( .Name // .Source) + ":/vols/Running_containers" + $cpath + .Destination
+')
+named_volumes=$(
+   docker volume inspect $(docker volume ls -q) |
+   jq -jr '
+     .[]
+     | if ( .Name > "" and (.Name | length) != 64  ) then 
+       (" -v " + .Name + ":/vols/Volumes_with_a_name/" + .Name )
+     else
+       empty 
+     end
+')
+
+
+#docker run -it --rm -u root --name=mc -v "$(pwd):/CurrentWorkingDirectory" $container_volumes $compose_volumes $named_volumes radpenguin/midnight-commander
+
+docker run --rm -it -u root \
+  -v "$(pwd):/vols/_Current_Working_Directory" \
+  -v "${HOME:-$(cd ~)}:/vols/home" \
+  $container_volumes $active_container_volumes $compose_volumes $named_volumes \
+  ubuntu /bin/bash -c \
+  'echo -e "\nOne moment.  Enabling midnight commander with mouse..."; (apt update -q 2>&1; DEBIAN_FRONTEND=noninteractive apt install mc -y -q --force-yes 2>&1 ;) > /dev/null; mc --nocolor /vols /vols'
+

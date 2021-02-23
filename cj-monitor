@@ -1,0 +1,396 @@
+#!/bin/bash
+# cj-monitor - cj-tools program that Updates DNS entries in hosts file for running docker containers.
+
+run_as_service=0
+update_file=0
+print_settings=0
+case "$1" in
+  service)
+    run_as_service=1
+    ;;
+  print)
+    print_settings=1
+    ;;
+  json)
+    print_json=1
+    ;;
+  update)
+    update_file=1
+    ;;
+  *)
+  cat <<EOF
+
+cj-monitor
+-------------------------
+Generates hosts file entries for all running docker containers.
+Creates a DNS entry matching one of these patterns:
+  composeServiceName.composeProjectName.baseDNSName
+  or
+  containerName.baseDNSName
+
+See configuration file: /etc/cj-tools/cj.config
+
+Note that baseDNSName defaults to your server/laptop fully qualified domain name
+like "joe-macbook.local" or "my-server-name.cj-tools.com"  This will guarantee
+uniqueness across machines and allow SDC/Transformer instance URLs to be unique
+in Control Hub.
+
+Usage:
+  cj-tools [-?] {service|print|update}
+    -? Help
+    "service"  Runs as a service keep hosts file up to date.  Loops until stopped.
+    "print"    Prints what would be written to hosts file and exits.
+    "update"   Updates the configured hosts file and exits.
+
+Uses these container labels:
+  com.docker.compose.service -
+    Added to start of DNS name.
+
+  com.docker.compose.project -
+    Prefix added to baseDNSName.
+
+  org.cj-tools.hosts.base_domain_name  -
+    Overrides the configured baseDNSName value.
+     base_domain_name is normally blank.
+
+  org.cj-tools.hosts.use_container_domain  -
+    Normally the base domain name comes from the base_domain_name container
+    setting or configuration file.  Setting this to "true" causes the
+    container "domainname" attribute to be used.
+
+  org.cj-tools.hosts.use_host_name -
+    Normally the compose service name is used as the DNS prefix.  And the
+    container name is used if the compose service name is blank.
+    Setting this to "true" will cause the container host name to be used.
+
+  org.cj-tools.hosts.exclude -
+    "true" to exclude this container from being added to hosts file.
+
+  org.cj-tools.hosts.ip -
+    Uses this ip address instead of the discovered IP.
+
+EOF
+  exit 0
+  ;;
+esac
+
+
+if [ ! -e "/etc/cj-tools/cj.config" ]
+then
+  echo "ERROR: Could not read /etc/cj-tools/cj.config"
+  exit 1
+fi
+
+function get_config {
+  sed -n '/^'"$1"'=/ s/^[^=]*=//p' /etc/cj-tools/cj.config
+}
+
+BASE_DOMAIN="$(get_config base_domain)"
+WAIT_SECONDS="$(get_config wait_seconds)"
+HOSTS_FILE="$(get_config hosts_entry_file)"
+START_TAG="$(get_config start_tag)"
+END_TAG="$(get_config end_tag)"
+TEMP_FILE_PREFIX="$(get_config temp_file_prefix)"
+HOST_IP_WHEN_IN_CONTAINER="$(get_config host_ip_inside_containers)"
+PAUSE_SECONDS_WHEN_IN_CONTAINER="$(get_config pause_seconds_inside_containers)"
+
+
+# Set Defaults
+# Default domain to machine's fully qualified domain name
+BASE_DOMAIN="${BASE_DOMAIN:-$(hostname -f)}"
+HOSTS_FILE="${HOSTS_FILE:-/etc/cj-tools/hosts}"
+WAIT_SECONDS="${WAIT_SECONDS:-5}"
+START_TAG="# ${START_TAG:-================== BEGIN cj-tools HOSTS}"
+END_TAG="# ${END_TAG:-================== END cj-tools HOSTS}"
+TEMP_FILE_PREFIX="${TEMP_FILE_PREFIX:-$(basename -s.sh "$0")-XXXXXXXX}"
+
+if [ "${START_TAG}" == "${END_TAG}" ]
+then
+  echo "ERROR: Configuration start_tag and end_tag must be different."
+  exit 1
+fi
+
+if [ ! -w "${HOSTS_FILE}" -a ${run_as_service} == 1 ]
+then
+  echo "ERROR: ${HOSTS_FILE} is not writable."
+  exit 1
+fi
+
+if ! which jq > /dev/null
+then
+  echo "ERROR: jq must be installed"
+  exit 1
+fi
+set -e
+
+# This variable is used to only process containers from a particular project
+only_this_project=""
+
+function running_containers {
+  container_ids=( $(docker ps -q) )
+
+  if [ $? -gt 0 -o ${#container_ids[@]} == 0 ]
+  then
+    return 0 # Nothing to process or docker stopped working
+  fi
+
+  this_hostname=$(hostname)
+  if [ "${#this_hostname}" == 12 -a ! -z "${HOST_IP_WHEN_IN_CONTAINER}" ]
+  then
+    # Exactly 12 bytes... probably inside a container.
+    HOST_IP="${HOST_IP_WHEN_IN_CONTAINER}"
+  else
+    HOST_IP=$(host $(hostname -f) | sed 's/^.* //')
+  fi
+
+  # Basic logic:
+  # - docker: Create json document for all active containers.
+  # - jq: Query the json document and output sorted container properties.
+  # - sort: Sort the containers by docker-compose project + DNS name.
+  # - read/printf: Print the hosts entry in a table format.
+  # JQ cheat sheet: https://gist.github.com/olih/f7437fb6962fb3ee9fe95bda8d2c8fa4
+  docker inspect -f "{{json .}}" ${container_ids[*]} \
+    | jq --arg BASE_DOMAIN "${BASE_DOMAIN}" \
+       --arg HOST_IP "${HOST_IP}" \
+       --arg FILTER_PROJECT "${only_this_project}" \
+      '
+        # Start with the document
+        .
+        # Set variables to simplify printing the values.
+        # Everything in this section must have "as $variable" at their end.
+        # --- Protocol for the URL.  Label overrides default.
+        | ( .Config.Labels."org.cj-tools.hosts.web_protocol" // "http" ) as $web_protocol
+        # --- Port for the URL.  Label overrides the first exposed port.
+        | (
+          if .Config.Labels."org.cj-tools.hosts.web_port" > "" then
+            .Config.Labels."org.cj-tools.hosts.web_port"
+          else
+            # Use the first exposed port.  And remove the protocol via gsub()
+            (try (.Config.ExposedPorts | to_entries[0].key | . ) catch "80") | gsub("\/[a-z]*"; "")
+          end
+        ) as $web_port
+        # --- private host name
+        | (.Config.Labels."com.docker.compose.service" // .Config.Hostname ) as $service_hostname
+        # --- public host name
+        | (.Config.Labels."org.cj-tools.hosts.host_name" // .Config.Labels."com.docker.compose.service" // 
+          if (.Config.Hostname | length) != 12 and .Config.Hostname > "" then
+            .Config.Hostname
+          else
+            (.Name | gsub("\/"; ""))
+          end
+        ) as $public_hostname
+        # --- FQDN
+        | (
+          # --- Host name
+          #     Order of precedence: Host name label, docker service name, container host name, container name
+          # FYI, "//" is the alternative operator.  A // B says if A is false or null, return B.
+          $public_hostname + "." +
+          # --- Full domain name
+          #     Order of precedence:
+          #       If label says then only use the container domain name.
+          #       otherwise
+          #       Subdomain label or compose project + label domain or container domain name or external configured domain
+          if .Config.Labels."org.cj-tools.hosts.use_container_domain" == "true" and .Config.Domainname > "" then
+            .Config.Domainname
+          else
+          # --- or Sub domain + Base domain name
+            (
+            if .Config.Labels."org.cj-tools.hosts.sub_domain" > "" then
+              (.Config.Labels."org.cj-tools.hosts.sub_domain" + ".")
+            elif .Config.Labels."com.docker.compose.project" > "" then
+              (.Config.Labels."com.docker.compose.project" + ".")
+            else
+              ""
+            end
+            +
+            if .Config.Labels."org.cj-tools.hosts.domain_name" > "" then
+              .Config.Labels."org.cj-tools.hosts.domain_name"
+            elif .Config.Labels."org.cj-tools.hosts.use_container_base_domain" == "true" and .Config.Domainname > "" then
+              .Config.Domainname
+            else
+              $BASE_DOMAIN
+            end
+            )
+          end
+        ) as $fqdn
+        | (
+          try (
+            .Config.Labels."org.cj-tools.view.links"
+            # Links are in the format: Link name,url[,tooltip]
+            | fromjson) catch [] ) as $links
+        | (
+          try (
+            .Config.Labels."org.cj-tools.view.copypaste"
+            # Links are in the format: Link name,url[,tooltip]
+            | fromjson) catch [] ) as $copy_paste
+        | (.Config.Labels."org.cj-tools.hosts.url_no_port" // ( $web_protocol + "://" + $fqdn)) as $url_no_port
+        | (.Config.Labels."org.cj-tools.hosts.url" // ( $web_protocol + "://" + $fqdn + ":" + $web_port)) as $url
+        |
+        # Now starts the output
+        # Do not output excluded containers
+        {
+          "name": ( .Config.Labels."com.docker.compose.service" // (.Name | gsub("\/"; "")) ),
+          "description": ( .Config.Labels."org.cj-tools.view.description" // "" ),
+          "icon": ( .Config.Labels."org.cj-tools.view.icon" // "" ),
+          "url": $url,
+          "url_no_port": $url_no_port,
+          "proxy_url": .Config.Labels."org.cj-tools.hosts.proxy_url",
+          # *** IP Address
+          "ip": (
+            if (.Config.Labels?."org.cj-tools.hosts.ip" | length) > 0 then
+              .Config.Labels."org.cj-tools.hosts.ip"
+           else
+              (.NetworkSettings.Networks? | to_entries[0]?.value | (if (.IPAddress | length) > 0 then .IPAddress else $HOST_IP end))
+           end
+          ),
+          "container_host_ip": $HOST_IP,
+          "hostname": $public_hostname,
+          "hostname_fqdn": $fqdn,
+          "hostname_service": $service_hostname,
+          # *** Container name
+          "container_name": (.Name | gsub("\/"; "")),
+          # *** Docker-compose project name
+          "project_name":(.Config.Labels."com.docker.compose.project" // ""),
+          # *** The port (normally first port registered in ExposedPorts)
+          "port": $web_port,
+          # *** Public port if one has been mapped on the host IP
+          "public_port": "TODO",
+          # The assumed url
+          "exclude": (.Config.Labels."org.cj-tools.hosts.exclude" // "false"),
+          "web_protocol": $web_protocol,
+          "categories": [ (.Config.Labels."com.docker.compose.project" // "Stand alone"), .Config.Image ],
+          "links": $links,
+          "copy_paste": $copy_paste
+        }
+        # Exclude the containers that explicitly say to.
+        # And exclude containers that are not in the same docker-compose project as this machine.
+        | select(.exclude == "false" and ($FILTER_PROJECT == "" or $FILTER_PROJECT == .project_name))
+        # Put this container properties in $lookup variable
+        | . as $lookup
+        # Then loop through all the simple strings and expand all ${macro}
+        # This allows setting url = "${web_protocol}://${ip}:8080" to use the IP instead of domain name.
+        | (.[] | strings) |= gsub("\\$\\{(?<found_key>.*?)\\}"; $lookup[.found_key])
+      ' \
+    | jq -s ' .
+        # Sort the containers by docker-compose project + DNS name.
+        | sort_by(.project_name, .hostname_fqdn)
+      '
+    # Note that the final pipe to "jq -s ." converts a sequence of objects into an array.  e.g. {a}{b} to [{a},{b}]
+}
+
+function print_new_hosts_entries {
+  container_ids=( $(docker ps -q) )
+
+  if [ $? -gt 0 -o ${#container_ids[@]} == 0 ]
+  then
+    return 0 # Nothing to process or docker stopped working
+  fi
+
+  running_containers |
+    jq -jr '
+        # Start with the document
+        .[] |
+        # Now starts the output
+        # Do not output excluded containers
+        if (.exclude == "true") then
+          ""
+        else
+          # *** IP Address
+          .ip
+          +" "
+          +.hostname_fqdn
+          +" "
+          # *** Container name
+          +.container_name
+          +" "
+          # *** Docker project name
+          +if .project_name == "" then "-" else .project_name end
+          +" "
+          # *** The port (normally first port registered in ExposedPorts)
+          +.port
+          +" "
+          # The assumed url
+          +.url
+          +"\n"
+        end
+     ' |
+    while read -r ip fqdn container project port url
+    do
+      printf "%-15s   %-40s # Project: %-15s  Container: %s    %s\n" $ip $fqdn "${project}" $container $url
+    done
+}
+
+function update_hosts_file {
+  event_counter=0
+#    # Get the old sorted output and see if the list has changed.
+#    old_settings=""
+#    [ -f "${HOSTS_FILE}" ] && old_settings="$(gawk "/^${START_TAG}/{insection=1; next} /^${END_TAG}/{insection=0} insection" "${HOSTS_FILE}")"
+
+  echo "INFO: Updating hosts file ${HOSTS_FILE}"
+  new_settings="$(print_new_hosts_entries)"
+
+  # Create an empty file if it doesn't exist yet
+  fl="$(mktemp --tmpdir $TEMP_FILE_PREFIX)" 
+  echo -e "${START_TAG}\n${new_settings}\n${END_TAG}" >"$fl"
+
+  [ ! -f "${HOSTS_FILE}" ] && touch "${HOSTS_FILE}"
+  awk -i inplace "/^${START_TAG}/,/^${END_TAG}/{next} //{print} ENDFILE {while(getline line<(\"${fl}\")){print line}}" "${HOSTS_FILE}"
+  rm "$fl"
+}
+
+if [ ${print_json} == 1 ]
+then
+  echo "$(running_containers)" | jq .
+  exit 0
+elif [ ${print_settings} == 1 ]
+then
+  echo "$(print_new_hosts_entries)"
+  exit 0
+elif [ ${update_file} == 1 ]
+then
+  if [ ! -w "${HOSTS_FILE}" ]
+  then
+    echo "ERROR: ${HOSTS_FILE} is not writable."
+    exit 1
+  fi
+
+  update_hosts_file
+  exit 0
+fi
+
+# Otherwise, this is running as a service
+
+# Using bash coproc command to only update hosts file
+# when docker says something started or stopped.  (completed)
+# Pretty cool solution from https://github.com/sagi-z/update-docker-dns/blob/master/update-docker-dns.sh
+trap update_hosts_file SIGALRM
+
+function set_timer {
+   ( sleep $1
+     kill -ALRM $$  # Fires the event for trap to pick up
+   ) &
+}
+
+# Start by updating the hosts file
+update_hosts_file
+
+event_counter=0
+while true
+do
+  echo "INFO: Registering for docker events"
+  # Listen on docker events to maintain the CONTAINER_HOSTS file
+  coproc docker events --filter 'event=start' --filter 'event=stop'  
+
+  while read -u ${COPROC[0]} line
+  do
+    if [ $event_counter == 0 ]
+    then
+      echo "Docker notified an event.  Waiting ${WAIT_SECONDS} seconds for more events."
+      event_counter=1
+      set_timer ${WAIT_SECONDS}s
+    else
+      let event_counter++
+    fi
+  done
+  sleep 10 # Some failure occurred... give it a few seconds
+done

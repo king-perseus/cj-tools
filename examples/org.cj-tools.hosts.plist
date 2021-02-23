@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!--
+       macOS service definition
+       Created by Tim Smith... on Linux... without testing
+       Which means it probably will not work.
+
+       Load service:
+         sudo launchctl load -w /etc/cj-tools/scripts/org.cj-tools.hosts.plist
+       Start service:
+         sudo launchctl start org.cj-tools.hosts
+    -->
+    <key>Label</key>
+    <string>org.cj-tools.hosts</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/bin/cj-monitor</string>
+        <string>service</string>
+    </array>
+    <key>StandardOutPath</key>
+    <string>/tmp/cj-monitor.hosts.stdout</string>
+    <key>StandardErrorPath</key>
+    <string>/tmp/cj-monitor.hosts.stderr</string>
+    <!-- To enable running as 'root' user remove comments.
+    <key>UserName</key>
+    <string>root</string>
+    -->
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <true/>
+</dict>
+</plist>
+

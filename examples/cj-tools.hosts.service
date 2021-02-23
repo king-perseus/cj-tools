@@ -1,0 +1,17 @@
+# Place in /etc/systemd/system/
+# Then systemctl start cj-tools.hosts.service
+[Unit]
+Description=Keeps hosts file updated with IP address and DNS entries for active docker containers.
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/cj-monitor service
+Restart=on-failure
+PIDFile=/tmp/cj-tools-monitor-hosts-service.pid
+User=root
+
+[Install]
+WantedBy=multi-user.target
+
