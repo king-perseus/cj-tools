@@ -44,33 +44,32 @@ Note: References to "domainname" mean the combination of subdomain and basedomai
 cj-monitor determines how to update the hosts file by using this configuration file
 along with [container labels](https://docs.docker.com/config/labels-custom-metadata/).  cj-monitor determines IP address, DNS name, etc using the following logic:
 
-*("\*" indicates which is the default if there are no overrides)*
 ***ipaddress***
-     1. Container label com.cj-tools.hosts.ip
-    *2. The IP address of the first network adapter registered to the container.
-  ***hostname***
-    The host name is required and normally automatically determined.
-    Normally the docker-compose service name or the container name.  Defaults in this order...
-     1. Container label com.cj-tools.hosts.host_name if specified.
-    *2. Container label com.docker.compose.service which specifies the name
-        of the docker-compose service the container was defined as.  e.g. "webserver"
-    *3. What the container thinks its hostname is as long as it is not exactly 12 characters long.
-        If docker creates a cryptic host name it will look something like "8adc0dba4d95".
-     4. Name of the docker container.  Will not make sense if you didn't specify a name at create time.  e.g. "spanky_colden"
+1. Container label com.cj-tools.hosts.ip
+2. (default) The IP address of the first network adapter registered to the container.
+
+***hostname***
+The host name is required and normally automatically determined.  Normally the docker-compose service name or the container name.  Defaults in this order...
+3. Container label com.cj-tools.hosts.host_name if specified.
+4. (default) Container label com.docker.compose.service which specifies the name of the docker-compose service the container was defined as.  e.g. "webserver"
+5. (default) What the container thinks its hostname is as long as it is not exactly 12 characters long. If docker creates a cryptic host name it will look something like "8adc0dba4d95".
+6. Name of the docker container.  Will not make sense if you didn't specify a name at create time.  e.g. "spanky_colden"
+
 ***Subdomain+Basedomain***
-    Setting com.cj-tools.hosts.use_container_domain overrides the combination of sub and base domain.
+Setting com.cj-tools.hosts.use_container_domain overrides the combination of sub and base domain.
+
 ***Subdomain***
-    The subdomain is optional and normally only set for containers created through docker-compose.
-     1. Container label com.cj-tools.hosts.sub_domain.  This is used to override docker-compose project.
-    *2. The name of the Docker-compose stack or project.  Comes from label "com.docker.compose.project"
-    *3. Blank.
+The subdomain is optional and normally only set for containers created through docker-compose.
+1. Container label com.cj-tools.hosts.sub_domain.  This is used to override docker-compose project.
+2. (default) The name of the Docker-compose stack or project.  Comes from label "com.docker.compose.project"
+3. (default) Blank.
+ 
 ***Basedomain***
-    The base domain is required and normally automatically determined.  Defaults in this order...
-     1. Container label com.cj-tools.hosts.domain_name
-     2. If container label com.cj-tools.hosts.use_container_domain = true
-        then basedomain comes from the container's domain property.  domain property must not be blank.
-     3. Configuration base_domain_name from /etc/cj-tools/cj.config
-    *4. Output of $(hostname -f)
+The base domain is required and normally automatically determined.  Defaults in this order...
+1. Container label com.cj-tools.hosts.domain_name
+2. If container label com.cj-tools.hosts.use_container_domain = true then basedomain comes from the container's domain property.  domain property must not be blank.
+3. Configuration base_domain_name from /etc/cj-tools/cj.config
+4. (default) Output of $(hostname -f)
 
 ## Summary of container labels:
 -  com.docker.compose.service - Docker-compose service name for the container.  Set by specifying -p on docker-compose command line or setting environment variable COMPOSE_PROJECT_NAME.
