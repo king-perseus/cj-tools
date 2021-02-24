@@ -41,8 +41,9 @@ Where:
 
 Note: References to "domainname" mean the combination of subdomain and basedomain.
 
-cj-monitor determines how to update the hosts file by using this configuration file
-along with [container labels](https://docs.docker.com/config/labels-custom-metadata/).  cj-monitor determines IP address, DNS name, etc using the following logic:
+cj-monitor determines how to update the hosts file by using the /etc/cj-tools/cj.config configuration file along with [container labels](https://docs.docker.com/config/labels-custom-metadata/).  
+
+cj-monitor determines IP address, DNS name, etc using the following logic.  Note that "(default)" indicates how cj-monitor works on containers that no special configuration has been made.
 
 ***ipaddress***
 1. Container label com.cj-tools.hosts.ip
