@@ -50,11 +50,11 @@ cj-monitor determines IP address, DNS name, etc using the following logic.  Note
 2. (default) The IP address of the first network adapter registered to the container.
 
 ***hostname***
-The host name is required and normally automatically determined.  Normally the docker-compose service name or the container name.  Defaults in this order...
-3. Container label com.cj-tools.hosts.host_name if specified.
-4. (default) Container label com.docker.compose.service which specifies the name of the docker-compose service the container was defined as.  e.g. "webserver"
-5. (default) What the container thinks its hostname is as long as it is not exactly 12 characters long. If docker creates a cryptic host name it will look something like "8adc0dba4d95".
-6. Name of the docker container.  Will not make sense if you didn't specify a name at create time.  e.g. "spanky_colden"
+The host name is required and normally automatically determined.  Normally the docker-compose service name or the container name.
+1. Container label com.cj-tools.hosts.host_name if specified.
+2. (default) Container label com.docker.compose.service which specifies the name of the docker-compose service the container was defined as.  e.g. "webserver"
+3. (default) What the container thinks its hostname is as long as it is not exactly 12 characters long. If docker creates a cryptic host name it will look something like "8adc0dba4d95".
+4. Name of the docker container.  Will not make sense if you didn't specify a name at create time.  e.g. "spanky_colden"
 
 ***Subdomain+Basedomain***
 Setting com.cj-tools.hosts.use_container_domain overrides the combination of sub and base domain.
@@ -73,15 +73,16 @@ The base domain is required and normally automatically determined.  Defaults in 
 4. (default) Output of $(hostname -f)
 
 ## Summary of container labels:
--  com.docker.compose.service - Docker-compose service name for the container.  Set by specifying -p on docker-compose command line or setting environment variable COMPOSE_PROJECT_NAME.
--  com.cj-tools.hosts.ip - Overrides the logic to determine the container's IP address.
--  com.cj-tools.hosts.exclude - If true, excludes the container from the hosts file.
--  com.cj-tools.hosts.ip - IP address.  Overrides the logic to determine the container's IP address.
--  com.cj-tools.hosts.host_name - Host name.  Overrides logic to determine the container's host name.
--  com.cj-tools.hosts.base_domain_name - If not blank, provides the base domain used for the container's fqdn.  Subdomain is not overridden.
--  com.cj-tools.hosts.use_container_base_domain - If true, use container's Config.Domain as base domain.  Subdomain is not overridden.
--  com.cj-tools.hosts.use_container_domain - If true, .Config.Domain specifies the complete domain.  Subdomain settings are ignored.
+These labels can be added to containers to control how Container Jockey works.
+-  **com.docker.compose.service** - Docker-compose service name for the container.  Set by specifying -p on docker-compose command line or setting environment variable COMPOSE_PROJECT_NAME.
+-  **com.cj-tools.hosts.ip** - Overrides the logic to determine the container's IP address.
+-  **com.cj-tools.hosts.exclude - If true, excludes the container from the hosts file.
+-  **com.cj-tools.hosts.ip** - IP address.  Overrides the logic to determine the container's IP address.
+-  **com.cj-tools.hosts.host_name** - Host name.  Overrides logic to determine the container's host name.
+-  **com.cj-tools.hosts.base_domain_name** - If not blank, provides the base domain used for the container's fqdn.  Subdomain is not overridden.
+-  **com.cj-tools.hosts.use_container_base_domain** - If true, use container's Config.Domain as base domain.  Subdomain is not overridden.
+-  **com.cj-tools.hosts.use_container_domain** - If true, .Config.Domain specifies the complete domain.  Subdomain settings are ignored.
 You can control the URL output to hosts file via:
--  com.cj-tools.hosts.url - Uses this instead of the derived URL.
--  com.cj-tools.hosts.web_protocol - Defaults to "http"
--  com.cj-tools.hosts.web_port - Defaults to 80
+-  **com.cj-tools.hosts.url** - Uses this instead of the derived URL.
+-  **com.cj-tools.hosts.web_protocol** - Defaults to "http"
+-  **com.cj-tools.hosts.web_port** - Defaults to 80
