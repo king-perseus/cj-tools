@@ -124,9 +124,10 @@ fi
 export CJ_FULL_DOMAIN="${CJ_PROJECT}.${CJ_BASE_DOMAIN}"
 
 # docker-compose does not consistently set COMPOSE_PROJECT_NAME.  We make it consistent.
-export CJ_PROJECT
-export CJ_BASE_DOMAIN
-export CJ_FULL_DOMAIN
+# Everything is guaranteed to be lower case.
+export CJ_PROJECT=${CJ_PROJECT,,}
+export CJ_BASE_DOMAIN=${CJ_BASE_DOMAIN,,}
+export CJ_FULL_DOMAIN=${CJ_FULL_DOMAIN,,}
 export COMPOSE_PROJECT_NAME="${CJ_PROJECT}"
 
 if [ ${project_specified} -eq 0 -a ! -z "${composecmd}" -a "${composecmd}" != "help"  -a "${composecmd}" != "list"  -a "${composecmd}" != "disable"  -a "${composecmd}" != "enable" ]
