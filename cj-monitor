@@ -126,6 +126,24 @@ set -e
 # This variable is used to only process containers from a particular project
 only_this_project=""
 
+## Figure out if we are in a container and the container has a project
+## If we have a compose project then we only want to show sibling containers.
+#my_ip=$(host $(hostname) | sed 's/^.* //')
+## In this case I need ALL containers
+#container_ids=( $(docker ps -q -a) )
+#if [ $? -gt 0 -o ${#container_ids[@]} == 0 ]
+#then
+#  echo "ERROR: No containers running."
+#  exit 1
+#fi
+
+# Use my Ip address to figure out which docker container I am running in
+#only_this_project=$(
+#  docker inspect \
+#    -f '{"project":{{json (index .Config.Labels "com.docker.compose.project")}}, "container":{{json .Name}}, "ip":{{range .NetworkSettings.Networks}}{{json .IPAddress}}{{end}} }' ${container_ids[*]}\
+#  | jq --arg MY_IP $my_ip -r '. | select(.ip == $MY_IP) | .project'
+#)
+
 function running_containers {
   container_ids=( $(docker ps -q) )
 
@@ -133,6 +151,16 @@ function running_containers {
   then
     return 0 # Nothing to process or docker stopped working
   fi
+
+
+  # If we are running inside of a container AND the container is in a compose project
+  # then we only want to return containers that are in the same project.
+  # This does assume that you don't have a container with the same hostname as the docker host.
+  only_this_project=$(
+    docker inspect ${container_ids[*]} \
+    | jq -r --arg FILTER_HOSTNAME "$(hostname)" \
+      ' .[] | select(.Config.Hostname == $FILTER_HOSTNAME) | .Config.Labels."com.docker.compose.project"'
+  )
 
   this_hostname=$(hostname)
   if [ "${#this_hostname}" == 12 -a ! -z "${HOST_IP_WHEN_IN_CONTAINER}" ]
@@ -247,6 +275,7 @@ function running_containers {
           "hostname": $public_hostname,
           "hostname_fqdn": $fqdn,
           "hostname_service": $service_hostname,
+          "private_hostname": .Config.Hostname,
           # *** Container name
           "container_name": (.Name | gsub("\/"; "")),
           # *** Docker-compose project name
@@ -258,7 +287,7 @@ function running_containers {
           # The assumed url
           "exclude": (.Config.Labels."org.cj-tools.hosts.exclude" // "false"),
           "web_protocol": $web_protocol,
-          "categories": [ (.Config.Labels."com.docker.compose.project" // "Stand alone"), .Config.Image ],
+          "categories": [ .Config.Image ],
           "links": $links,
           "copy_paste": $copy_paste
         }
