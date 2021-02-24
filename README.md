@@ -8,6 +8,8 @@ Container Jockey is a suite of tools to make it easy to work with sets of docker
 - **cj-browse** - Runs a container with midnight commander that lets you browse through docker volumes for running and stopped containers.
 - **cj-compose** - Extends docker-compose to add missing features.
 
+Once installed, Container Jockey requires no additional work to configure the containers.  It will determine unique DNS names for containers using logical defaults.
+
 ## Dependencies
 
 - jq
