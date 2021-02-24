@@ -43,7 +43,7 @@ else
   fi
   set -e # Fail on error
   chown root:root -R /etc/cj-tools
-  chmod 744 -R /etc/cj-tools
+  chmod 755 -R /etc/cj-tools
   set +e
 fi
 
@@ -56,8 +56,7 @@ then
 else
   set -e # Fail on error
   chown root:root /usr/bin/cj-browse /usr/bin/cj-monitor /usr/bin/cj-compose
-  chmod 744 /usr/bin/cj-browse /usr/bin/cj-monitor /usr/bin/cj-compose
-  chmod +x /usr/bin/cj-browse /usr/bin/cj-monitor /usr/bin/cj-compose
+  chmod 755 /usr/bin/cj-browse /usr/bin/cj-monitor /usr/bin/cj-compose
   set +e
 fi
 
