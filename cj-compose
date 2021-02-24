@@ -244,6 +244,26 @@ then
     fi
     docker run --rm -u root -v ${CJ_PROJECT}_${v}:/data alpine chmod ${chmodval:=777} /data >/dev/null
   done
+
+  # cj-compose also provides a way to automatically create read/writable external volumes
+  # Place all external dependencies in cj-compose.autocreate.txt
+  if [ -e cj-compose.autocreate.txt ]
+  then
+    echo "Ensuring volumes in cj-compose.autocreate.txt exist."
+    # Format: volumename=comment # optional-comment
+    for ln in $(sed -e 's/#.*//; s/" *//; s/"//g; /^$/d' cj-compose.autocreate.txt)
+    do
+      v="${ln//=*}"
+      docs="${ln##*=}"
+      v="${v,,}" # Convert to lower case
+      # Create if the volume name is not blank and does not already exist
+      if [ ! -z "${v}" -a -z $(docker volume ls -q | grep "^${v}$")]
+      then
+        docker volume create --label "org.cj-tools.compose.description=${docs}" --label "org.cj-tools.compose.log=Initially created for project ${CJ_PROJECT} in $(pwd)" "${v}"
+        docker run --rm -u root -v ${CJ_PROJECT}_${v}:/data alpine chmod 777 /data >/dev/null
+      fi
+    done
+  fi
   exec docker-compose -p "${CJ_PROJECT}" "${compose_pre_parameters[@]}" "${add_yml_files[@]}" ${composecmd} "${compose_parameters[@]}"
 else
   exec docker-compose -p "${CJ_PROJECT}" "${compose_pre_parameters[@]}" "${add_yml_files[@]}" ${composecmd} "${compose_parameters[@]}"
