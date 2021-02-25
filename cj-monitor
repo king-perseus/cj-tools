@@ -363,7 +363,13 @@ function update_hosts_file {
   echo -e "${START_TAG}\n${new_settings}\n${END_TAG}" >"$fl"
 
   [ ! -f "${HOSTS_FILE}" ] && touch "${HOSTS_FILE}"
-  awk -i inplace "/^${START_TAG}/,/^${END_TAG}/{next} //{print} ENDFILE {while(getline line<(\"${fl}\")){print line}}" "${HOSTS_FILE}"
+  # awk -i inplace "/^${START_TAG}/,/^${END_TAG}/{next} //{print} ENDFILE {while(getline line<(\"${fl}\")){print line}}" "${HOSTS_FILE}"
+  newhosts="$(mktemp $TEMP_FILE_PREFIX)" 
+  awk "/^${START_TAG}/,/^${END_TAG}/{next} //{print} ENDFILE {while(getline line<(\"${fl}\")){print line}}" "${HOSTS_FILE}" > ${newhosts}
+  chown root:wheel ${newhosts}
+  chmod 744 ${newhosts}
+  cp ${newhosts} /etc/hosts
+  rm ${newhosts}
   rm "$fl"
 }
 
