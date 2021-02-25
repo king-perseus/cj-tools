@@ -359,12 +359,14 @@ function update_hosts_file {
   new_settings="$(print_new_hosts_entries)"
 
   # Create an empty file if it doesn't exist yet
-  fl="$(mktemp $TEMP_FILE_PREFIX)" 
+  #fl="$(mktemp $TEMP_FILE_PREFIX)" 
+  fl="$(mktemp)"
   echo -e "${START_TAG}\n${new_settings}\n${END_TAG}" >"$fl"
 
   [ ! -f "${HOSTS_FILE}" ] && touch "${HOSTS_FILE}"
   # awk -i inplace "/^${START_TAG}/,/^${END_TAG}/{next} //{print} ENDFILE {while(getline line<(\"${fl}\")){print line}}" "${HOSTS_FILE}"
-  newhosts="$(mktemp $TEMP_FILE_PREFIX)" 
+  #newhosts="$(mktemp $TEMP_FILE_PREFIX)" 
+  newhosts="$(mktemp)" 
   awk "/^${START_TAG}/,/^${END_TAG}/{next} //{print}" "${HOSTS_FILE}" > ${newhosts}
   cat $fl >> ${newhosts}
   
