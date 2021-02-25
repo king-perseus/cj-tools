@@ -24,7 +24,7 @@ fi
 echo "2 - Installing configuration and examples into /etc/cj-tools"
 if ! mkdir -p /etc/cj-tools
 then
-  echo "ERROR: Unable to create /etc/cj-tools.  Please run with sudo to give meeded rights."
+  echo "ERROR: Unable to create /etc/cj-tools.  Please run with sudo to give needed rights."
   exit 1
 fi
 if [ -e /etc/cj-tools/cj.config ]
@@ -35,7 +35,7 @@ else
   then
     if [ -e /etc/cj-tools/cj.config -a ! -w /etc/cj-tools/cj.config ]
     then
-      echo "ERROR: Unable to write to /etc/cj-tools.  Please run with sudo to give meeded rights."
+      echo "ERROR: Unable to write to /etc/cj-tools.  Please run with sudo to give needed rights."
       exit 1
     fi
   fi
@@ -59,7 +59,7 @@ fi
 echo "3 - Installing cj-* scripts into /usr/local/bin"
 if [ ! -w /usr/local/bin/cj-browse ]
 then
-  echo "ERROR: Unable to write to /usr/local/bin/cj-browse.  Please run with sudo to give meeded rights."
+  echo "ERROR: Unable to write to /usr/local/bin/cj-browse.  Please run with sudo to give needed rights."
   exit 1
 fi
 
