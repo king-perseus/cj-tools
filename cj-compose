@@ -254,13 +254,13 @@ then
   then
     echo "Ensuring volumes in cj-compose.autocreate.txt exist."
     # Format: volumename=comment # optional-comment
-    for ln in $(sed -e 's/#.*//; s/" *//; s/"//g; /^$/d' cj-compose.autocreate.txt)
+    sed -e 's/#.*//; s/" *//; s/"//g; /^$/d' cj-compose.autocreate.txt | while read ln
     do
       v="${ln//=*}"
       docs="${ln##*=}"
       v=$(echo "${v}"  | tr "[A-Z]" "[a-z]" ) # Convert to lower case
       # Create if the volume name is not blank and does not already exist
-      if [ ! -z "${v}" -a -z $(docker volume ls -q | grep "^${v}$")]
+      if [ ! -z "${v}" -a -z "$(docker volume ls -q | grep "^${v}$" )" ]
       then
         docker volume create --label "org.cj-tools.compose.description=${docs}" --label "org.cj-tools.compose.log=Initially created for project ${CJ_PROJECT} in $(pwd)" "${v}"
         docker run --rm -u root -v ${CJ_PROJECT}_${v}:/data alpine chmod 777 /data >/dev/null

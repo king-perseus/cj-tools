@@ -375,8 +375,8 @@ function update_hosts_file {
   newhosts="$(mktemp)" 
   awk "/^${START_TAG}/,/^${END_TAG}/{next} //{print}" "${HOSTS_FILE}" > ${newhosts}
   cat $fl >> ${newhosts}
-  
-  chown root:wheel ${newhosts}
+
+#  chown root:wheel ${newhosts}
   chmod 744 ${newhosts}
   cp ${newhosts} /etc/hosts
   rm ${newhosts}

@@ -24,13 +24,22 @@ fi
 echo "2 - Installing configuration and examples into /etc/cj-tools"
 if ! mkdir -p /etc/cj-tools
 then
-  echo "Unable to create /etc/cj-tools.  Please run with sudo to give meeded rights."
+  echo "ERROR: Unable to create /etc/cj-tools.  Please run with sudo to give meeded rights."
   exit 1
 fi
 if [ -e /etc/cj-tools/cj.config ]
 then
   echo "INFO: Skipping.  Configuration already exists"
 else
+  if [[ "$OSTYPE" =~ linux ]]
+  then
+    if [ ! -w /etc/cj-tools/cj.config ]
+    then
+      echo "ERROR: Unable to write to /etc/cj-tools.  Please run with sudo to give meeded rights."
+      exit 1
+    fi
+  fi
+
   if ! cp cj.config /etc/cj-tools
   then
     echo "ERROR: Error installing cj.config"
@@ -47,11 +56,17 @@ else
   set +e
 fi
 
-echo "3 - Installing cj-* scripts into /usr/bin"
+echo "3 - Installing cj-* scripts into /usr/local/bin"
+if [ ! -w /usr/local/bin/cj-browse ]
+then
+  echo "ERROR: Unable to write to /usr/local/bin/cj-browse.  Please run with sudo to give meeded rights."
+  exit 1
+fi
+
 cp cj-browse cj-monitor cj-compose /usr/local/bin
 if [ $? -ne 0 ]
 then
-  echo "ERROR: Error copying scripts into /usr/bin"
+  echo "ERROR: Error copying scripts into /usr/local/bin"
   exit 1
 else
   set -e # Fail on error

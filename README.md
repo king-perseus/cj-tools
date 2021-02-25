@@ -22,7 +22,7 @@ Download the project and run sudo ./install-cj.sh
 
 The installer will:
 1. Load configurations in /etc/cj-tools
-2. Install the cj-* programs in /usr/bin
+2. Install the cj-* programs in /usr/local/bin
 3. Register the cj-monitor service which updates the hosts file.
 
 Once installed, you can immediately use cj-monitor and cj-browse without any other work (assuming docker is running).
