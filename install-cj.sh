@@ -57,7 +57,7 @@ else
 fi
 
 echo "3 - Installing cj-* scripts into /usr/local/bin"
-if [ ! -w /usr/local/bin/cj-browse ]
+if [ -e /usr/local/bin/cj-browse -a ! -w /usr/local/bin/cj-browse ]
 then
   echo "ERROR: Unable to write to /usr/local/bin/cj-browse.  Please run with sudo to give needed rights."
   exit 1
