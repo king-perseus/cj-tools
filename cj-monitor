@@ -120,7 +120,7 @@ echo "Current shell is: $SHELL"
 which bash
 export HOME=/var/root
 
-export PATH=$PATH:/usr/local/bin
+export PATH=$PATH:/usr/local/bin:/bin
 if ! which jq > /dev/null
 then
   echo "ERROR: jq must be installed"
