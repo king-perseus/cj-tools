@@ -116,6 +116,11 @@ then
   exit 1
 fi
 
+echo "Current shell is: $SHELL"
+which bash
+export HOME=/var/root
+
+export PATH=$PATH:/usr/local/bin
 if ! which jq > /dev/null
 then
   echo "ERROR: jq must be installed"
