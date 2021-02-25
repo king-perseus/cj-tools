@@ -23,10 +23,10 @@
     <string>/tmp/cj-monitor.hosts.stdout</string>
     <key>StandardErrorPath</key>
     <string>/tmp/cj-monitor.hosts.stderr</string>
-    <!-- To enable running as 'root' user remove comments.
+    <!-- To enable running as 'root' user remove comments. -->
     <key>UserName</key>
     <string>root</string>
-    -->
+    <!-- -->
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
