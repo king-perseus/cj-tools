@@ -33,7 +33,7 @@ then
 else
   if [[ "$OSTYPE" =~ linux ]]
   then
-    if [ ! -w /etc/cj-tools/cj.config ]
+    if [ -e /etc/cj-tools/cj.config -a ! -w /etc/cj-tools/cj.config ]
     then
       echo "ERROR: Unable to write to /etc/cj-tools.  Please run with sudo to give meeded rights."
       exit 1
