@@ -368,10 +368,6 @@ function update_hosts_file {
   awk "/^${START_TAG}/,/^${END_TAG}/{next} //{print}" "${HOSTS_FILE}" > ${newhosts}
   cat $fl >> ${newhosts}
   
-  echo "New host"
-  cat ${newhosts}
-  echo
-  
   chown root:wheel ${newhosts}
   chmod 744 ${newhosts}
   cp ${newhosts} /etc/hosts
