@@ -212,9 +212,12 @@ then
   # Now use docker-compose to provide the rest of the help
   docker-compose "${compose_pre_parameters[@]}" ${composecmd} "${compose_parameters[@]}" 2>&1 |\
     sed -n -e 's/docker-compose/cj-compose/g; /^Usage:/,$ p' \
-      -e '/^  kill   /a \ \ list              *Lists services defined in yml (added by cj-compose)' \
-      -e '/^  create /a \ \ disable           *Disables a service in ./services/ (added by cj-compose)' \
-      -e '/^  down   /a \ \ enable            *Enables a service in ./services/ (added by cj-compose)'
+      -e '/^  kill   /a\
+\ \ list              *Lists services defined in yml (added by cj-compose)' \
+      -e '/^  create /a\
+\ \ disable           *Disables a service in ./services/ (added by cj-compose)' \
+      -e '/^  down   /a\
+\ \ enable            *Enables a service in ./services/ (added by cj-compose)'
 elif [ "${composecmd}" == "down" ]
 then
   # Down should include the list of disabled projets so they can get cleaned up
