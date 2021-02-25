@@ -1,5 +1,27 @@
 version: "3.7"
+# Create reusable settings to apply to containers
+x-cj-exclude: &exclude-hosts-file  # Exclude anything that doesn't make sense to include
+  labels:
+    org.cj-tools.hosts.exclude: "true"
+
+x-cj-defaults: &defaults # Default service settings
+  labels:
+    org.cj-tools.hosts.debug: "CJ_PROJECT=${CJ_PROJECT} CJ_BASE_DOMAIN=${CJ_BASE_DOMAIN}  CJ_FULL_DOMAIN=${CJ_FULL_DOMAIN}"
+
+x-cj-set-domain: &set-internal-domain-name
+  domainname: "${CJ_FULL_DOMAIN:?ERROR: Use cj-compose instead of docker-compose to automatically set CJ_* environment variables.}"
+  labels:
+    org.cj-tools.hosts.use_container_domain: "true"
+
+
 services:
   sdc:
+    <<: *defaults
+    <<: *set-internal-domain-name
     image: streamsets/datacollector:latest
-    
+    labels:
+      org.cj-tools.view.name: "Data Collector"
+      org.cj-tools.view.description: "This is an example service that uses StreamSets Data Collector"
+      org.cj-tools.view.icon: "https://streamsets.com/favicon-32x32.png"
+      org.cj-tools.view.links: "[{\"name\": \"Docs on Origins\", \"url\": \"https://streamsets.com/documentation/datacollector/latest/help/datacollector/UserGuide/Origins/Origins_title.html\"} ]"
+#      org.cj-tools.hosts.web_protocol: https
