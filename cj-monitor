@@ -359,7 +359,7 @@ function update_hosts_file {
   new_settings="$(print_new_hosts_entries)"
 
   # Create an empty file if it doesn't exist yet
-  fl="$(mktemp --tmpdir $TEMP_FILE_PREFIX)" 
+  fl="$(mktemp $TEMP_FILE_PREFIX)" 
   echo -e "${START_TAG}\n${new_settings}\n${END_TAG}" >"$fl"
 
   [ ! -f "${HOSTS_FILE}" ] && touch "${HOSTS_FILE}"
@@ -367,15 +367,15 @@ function update_hosts_file {
   rm "$fl"
 }
 
-if [ ${print_json} == 1 ]
+if [ "${print_json}" == 1 ]
 then
   echo "$(running_containers)" | jq .
   exit 0
-elif [ ${print_settings} == 1 ]
+elif [ "${print_settings}" == 1 ]
 then
   echo "$(print_new_hosts_entries)"
   exit 0
-elif [ ${update_file} == 1 ]
+elif [ "${update_file}" == 1 ]
 then
   if [ ! -w "${HOSTS_FILE}" ]
   then
