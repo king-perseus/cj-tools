@@ -16,7 +16,7 @@
     <string>org.cj-tools.hosts</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/bin/cj-monitor</string>
+        <string>/usr/local/bin/cj-monitor</string>
         <string>service</string>
     </array>
     <key>StandardOutPath</key>
