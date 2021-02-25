@@ -80,6 +80,7 @@ then
   set -e # Fail on error
   launchctl load -w /etc/cj-tools/examples/org.cj-tools.hosts.plist
   launchctl start org.cj-tools.hosts
+  # To delete, use launchctl unload -w /etc/cj-tools/examples/org.cj-tools.hosts.plist
   set +e
 else
   echo "ERROR: I am unsure how to deply a service for OSTYPE=$OSTYPE.  Please file a bug report to request support."
