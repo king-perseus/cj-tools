@@ -77,8 +77,10 @@ then
   systemctl start cj-tools.hosts.service
 elif [[ "$OSTYPE" == "darwin"* ]]  # "darwin20.0"*
 then
+  launchctl unload -w /etc/cj-tools/examples/org.cj-tools.hosts.plist 2>/dev/null >/dev/null || true
   set -e # Fail on error
   launchctl load -w /etc/cj-tools/examples/org.cj-tools.hosts.plist
+  sleep 2
   launchctl start org.cj-tools.hosts
   # To delete, use launchctl unload -w /etc/cj-tools/examples/org.cj-tools.hosts.plist
   set +e
