@@ -255,7 +255,7 @@ then
     do
       v="${ln//=*}"
       docs="${ln##*=}"
-      v="${v,,}" # Convert to lower case
+      v=$(echo "${v}"  | tr "[A-Z]" "[a-z]")) # Convert to lower case
       # Create if the volume name is not blank and does not already exist
       if [ ! -z "${v}" -a -z $(docker volume ls -q | grep "^${v}$")]
       then
