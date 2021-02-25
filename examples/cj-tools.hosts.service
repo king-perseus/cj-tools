@@ -7,7 +7,7 @@ After=docker.service
 
 [Service]
 Type=simple
-ExecStart=/usr/bin/cj-monitor service
+ExecStart=/usr/local/bin/cj-monitor service
 Restart=on-failure
 PIDFile=/tmp/cj-tools-monitor-hosts-service.pid
 User=root
