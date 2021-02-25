@@ -245,8 +245,8 @@ then
       fi
       docker volume create --label "com.docker.compose.project=${CJ_PROJECT}" --label "com.docker.compose.volume=${v}" --label "com.docker.compose.version=1.25.0" ${CJ_PROJECT}_${v}
     fi
-    docker run --rm -u root -v ${CJ_PROJECT}_${v}:/data alpine chmod 7777 /data >/dev/null
-    docker run --rm -v ${CJ_PROJECT}_${v}:/data alpine touch /data/test >/dev/null
+    docker run --rm -u root -v ${CJ_PROJECT}_${v}:/data alpine chmod -R 7777 /data >/dev/null
+    docker run --rm -v ${CJ_PROJECT}_${v}:/data alpine touch /data/_ >/dev/null
   done
 
   # cj-compose also provides a way to automatically create read/writable external volumes
@@ -265,8 +265,9 @@ then
       then
         docker volume create --label "org.cj-tools.compose.description=${docs}" --label "org.cj-tools.compose.log=Initially created for project ${CJ_PROJECT} in $(pwd)" "${v}"
       fi
-      docker run --rm -u root -v ${CJ_PROJECT}_${v}:/data alpine chmod 7777 /data >/dev/null
     done
+    docker run --rm -u root -v ${CJ_PROJECT}_${v}:/data alpine chmod -R 7777 /data >/dev/null
+    docker run --rm -v ${CJ_PROJECT}_${v}:/data alpine touch /data/_
   fi
   exec docker-compose -p "${CJ_PROJECT}" "${compose_pre_parameters[@]}" "${add_yml_files[@]}" ${composecmd} "${compose_parameters[@]}"
 else
