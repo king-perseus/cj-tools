@@ -43,7 +43,7 @@ else
   fi
   set -e # Fail on error
   # chown root:wheel -R /etc/cj-tools  # Mac OS does not support group root and Linux does not always have wheel.
-  chmod 755 -R /etc/cj-tools
+  chmod -R 755 /etc/cj-tools
   set +e
 fi
 
