@@ -42,21 +42,21 @@ else
     exit 1
   fi
   set -e # Fail on error
-  chown root:root -R /etc/cj-tools
+  # chown root:wheel -R /etc/cj-tools  # Mac OS does not support group root and Linux does not always have wheel.
   chmod 755 -R /etc/cj-tools
   set +e
 fi
 
 echo "3 - Installing cj-* scripts into /usr/bin"
-cp cj-browse cj-monitor cj-compose /usr/bin
+cp cj-browse cj-monitor cj-compose /usr/local/bin
 if [ $? -ne 0 ]
 then
   echo "ERROR: Error copying scripts into /usr/bin"
   exit 1
 else
   set -e # Fail on error
-  chown root:root /usr/bin/cj-browse /usr/bin/cj-monitor /usr/bin/cj-compose
-  chmod 755 /usr/bin/cj-browse /usr/bin/cj-monitor /usr/bin/cj-compose
+  # chown root:wheel /usr/local/bin/cj-browse /usr/local/bin/cj-monitor /usr/local/bin/cj-compose   # Mac OS does not support group root and Linux does not always have wheel.
+  chmod 755 /usr/local/bin/cj-browse /usr/local/bin/cj-monitor /usr/local/bin/cj-compose
   set +e
 fi
 
@@ -75,7 +75,7 @@ then
   fi
   systemctl daemon-reload
   systemctl start cj-tools.hosts.service
-elif [[ "$OSTYPE" == "darwin"* ]]
+elif [[ "$OSTYPE" == "darwin"* ]]  # "darwin20.0"*
 then
   set -e # Fail on error
   launchctl load -w /etc/cj-tools/examples/org.cj-tools.hosts.plist
